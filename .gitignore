@@ -1,0 +1,8 @@
+# Text file
+*.txt
+
+# Virtual environment
+.venv
+
+# Bytecode
+__pycache__
