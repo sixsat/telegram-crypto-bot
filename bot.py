@@ -1,8 +1,8 @@
 import logging
 import os
 
-from telegram.ext import CallbackContext, CommandHandler, MessageHandler, Updater
-from telegram.ext.filters import Filters
+from telegram import Update
+from telegram.ext import CallbackContext, CommandHandler, Filters, MessageHandler, Updater
 
 import bot_responses as BR
 
@@ -20,6 +20,7 @@ def main():
 
     # Response to command input (start with /)
     dispatcher.add_handler(CommandHandler("help", BR.help_command))
+    dispatcher.add_handler(CommandHandler("interval", BR.set_interval_command))
     dispatcher.add_handler(CommandHandler("start", BR.start_command))
 
     # Response to message input
@@ -34,8 +35,11 @@ def main():
     updater.idle()
 
 
-def error_handler(update, context: CallbackContext):
-    logging.error(msg="Exception while handling an update:", exc_info=context.error)
+def error_handler(update: Update, context: CallbackContext):
+    logging.error(
+        msg=f"Exception while handling an update: {update}",
+        exc_info=context.error
+    )
 
 
 def get_api_key():
