@@ -16,17 +16,17 @@ NETWORKS = ["bsc", "ethereum", "polygon", "avalanche", "arbitrum"]
 
 def get_timeframe(interval):
     if interval == "15M":
-        return 15
+        return 15.0
     elif interval == "30M":
-        return 30
+        return 30.0
     elif interval == "1H":
-        return 60
+        return 60.0
     elif interval == "4H":
-        return 240
+        return 240.0
     elif interval == "1D":
-        return 1440
+        return 1440.0
     elif interval == "1W":
-        return 10080
+        return 10080.0
 
 
 def handle_message(update: Update, context: CallbackContext):
@@ -65,7 +65,7 @@ def handle_message(update: Update, context: CallbackContext):
             else:
                 context.bot.send_message(
                     chat_id=chat_id,
-                    text="Couldn't get the image of price chart"
+                    text="Couldn't get the price chart image"
                 )
     
     # Check for command
@@ -92,33 +92,34 @@ def help_command(update: Update, context: CallbackContext):
 
 
 def plot_candlestick_chart(df, symbol):
-    plt.figure(facecolor="#c0c0c0")
+    plt.figure(figsize=[6.8, 6.0], facecolor="#fdf1db")
+    plt.axes(facecolor="#fdf1db")
+    plt.grid(zorder=0)
 
     up = df[df.close >= df.open] # Closing price >= opening price
     down = df[df.close < df.open] # Closing price < opening price
 
-    # Define candlestick color
+    # Candlestick color
     up_color = "green"
     down_color = "red"
 
-    # Define candlestick width
-    width = .2
-    width2 = .02
+    # Candlestick width
+    width = get_timeframe(INTERVAL) / 2000
+    width2 = width / 6
 
     # Plot up price
-    plt.bar(up.index, up.close - up.open, width, bottom=up.open, color=up_color)
-    plt.bar(up.index, up.high - up.close, width2, bottom=up.close, color=up_color)
-    plt.bar(up.index, up.low - up.open, width2, bottom=up.open, color=up_color)
+    plt.bar(up.index, up.close - up.open, width, bottom=up.open, color=up_color, zorder=3)
+    plt.bar(up.index, up.high - up.close, width2, bottom=up.close, color=up_color, zorder=3)
+    plt.bar(up.index, up.low - up.open, width2, bottom=up.open, color=up_color, zorder=3)
 
     # Plot down price
-    plt.bar(down.index, up.close - up.open, width, bottom=down.open, color=down_color)
-    plt.bar(down.index, up.high - up.open, width2, bottom=down.open, color=down_color)
-    plt.bar(down.index, up.low - up.close, width2, bottom=down.close, color=down_color)
+    plt.bar(down.index, down.close - down.open, width, bottom=down.open, color=down_color, zorder=3)
+    plt.bar(down.index, down.high - down.open, width2, bottom=down.open, color=down_color, zorder=3)
+    plt.bar(down.index, down.low - down.close, width2, bottom=down.close, color=down_color, zorder=3)
 
-    plt.xticks(rotation=45)
+    plt.xticks(rotation=30)
 
-    plt.title(symbol)
-    plt.xlabel("Datetime")
+    plt.title(f"{symbol} (interval: {INTERVAL})")
     plt.ylabel("Price (USD)")
 
     # Create binary stream
@@ -168,7 +169,7 @@ def start_command(update: Update, context: CallbackContext):
 def token_price_chart_arken(token, symbol):
     """Lookup for prices via Arken API and create price chart"""
 
-    timeframe = get_timeframe(INTERVAL) * 50 # Number of candlesticks
+    timeframe = get_timeframe(INTERVAL) * 50 # Number of candlesticks (max)
     end_time = datetime.now()
 
     # Convert datetime to Unix time
@@ -201,8 +202,7 @@ def token_price_chart_arken(token, symbol):
 
         return plot_candlestick_chart(prices_df, symbol)
 
-    except (KeyError, TypeError, ValueError) as e:
-        print(e.with_traceback, e)
+    except (KeyError, TypeError, ValueError):
         return None
 
 
