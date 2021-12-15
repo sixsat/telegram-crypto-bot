@@ -21,9 +21,9 @@ Thanks to [python-telegram-bot](https://github.com/python-telegram-bot/python-te
 
 ### Screenshots
 
-![Token's data and price chart](https://postimg.cc/H8QLFHW1)
+[![Token's data and price chart](https://i.postimg.cc/2ytBb8Py/example2.png)](https://postimg.cc/H8QLFHW1)
 
-![Lookup for symbols in watchlist](https://postimg.cc/Yvft7bwY)
+[![Lookup for symbols in watchlist](https://i.postimg.cc/2Sgy4Kcc/example.png)](https://postimg.cc/Yvft7bwY)
 
 ### Data provided by
 
