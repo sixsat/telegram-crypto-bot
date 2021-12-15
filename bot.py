@@ -18,10 +18,11 @@ def main():
     updater = Updater(token=api_key, use_context=True)
     dispatcher = updater.dispatcher
 
-    # Response to command input (start with /)
+    # Response to command input
     dispatcher.add_handler(CommandHandler("help", BR.help_command))
     dispatcher.add_handler(CommandHandler("interval", BR.set_interval_command))
     dispatcher.add_handler(CommandHandler("start", BR.start_command))
+    dispatcher.add_handler(CommandHandler("watchlist", BR.watchlist_binance_command))
 
     # Response to message input
     dispatcher.add_handler(MessageHandler(Filters.text, BR.handle_message))
@@ -44,11 +45,10 @@ def error_handler(update: Update, context: CallbackContext):
 
 def get_api_key():
 
-    # Look for API key file
+    # Ensure API key file exists
     if not os.path.exists("api_key.txt"):
         raise Exception("API key not found")
 
-    # Read API key file
     with open("api_key.txt", "r") as f:
         return f.read()
 

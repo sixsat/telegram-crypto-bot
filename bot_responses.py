@@ -1,5 +1,6 @@
 import io
 import matplotlib.pyplot as plt
+import os
 import pandas as pd
 import requests
 
@@ -84,9 +85,12 @@ def help_command(update: Update, context: CallbackContext):
         chat_id=update.effective_chat.id,
         text="Available commands:\n\n"
              "/help -> This message\n"
-             "/interval [interval] -> set interval (15M, 30M, 1H, 4H, 1D, 1W)\n"
-             "/start -> Start message\n\n"
-             "Text me:\n\n"
+             "/interval [interval] -> set interval (15m, 30m, 1h, 4h, 1d, 1w)\n"
+             "/start -> Start message\n"
+             "/watchlist -> Lookup for each symbol in watchlist\n"
+             "/watchlist add [symbol] -> add symbol (e.g. btcusdt) to watchlist\n"
+             "/watchlist rm [symbol] -> remove symbol (e.g.ethbtc) from watchlist or \"all\" to clear watchlist\n\n"
+             "Send me:\n\n"
              "token_address -> Fetch token data and price chart"
     )
 
@@ -148,7 +152,7 @@ def set_interval_command(update: Update, context: CallbackContext):
         if interval not in ["15M", "30M", "1H", "4H", "1D", "1W"]:
             context.bot.send_message(
                 chat_id=chat_id,
-                text="Invalid interval, try: 15M, 30M, 1H, 4H, 1D, 1W"
+                text="Invalid interval, try: 15m, 30m, 1h, 4h, 1d, 1w"
             )
         else:
             global INTERVAL
@@ -194,7 +198,7 @@ def token_price_chart_arken(token, symbol):
         # Format data
         prices_dict = {key: [dic[key] for dic in prices] for key in prices[0]}
         
-        # Create and format dataframe
+        # Create and format Dataframe
         prices_df = pd.DataFrame(prices_dict, dtype=float)
         prices_df = prices_df.rename(columns={"timestamp":"datetime"})
         prices_df["datetime"] = prices_df["datetime"].apply(lambda x: datetime.fromtimestamp(int(x)))
@@ -234,3 +238,196 @@ def token_lookup_arken(token):
         }
     except (KeyError, TypeError, ValueError):
         return None
+
+
+def watchlist_binance_command(update: Update, context: CallbackContext):
+    """
+    Lookup for/add/remove symbols in watchlist
+    (Lookup via Binance API)
+    """
+    
+    chat_id = update.effective_chat.id
+    argc = len(context.args)
+    url = "https://api.binance.com/api/v3/ticker/24hr?symbol={}"
+
+    # If no argument, loop over watchlist and lookup for each symbol
+    if argc == 0:
+
+        # Ensure watchlist file exists
+        if not os.path.exists("watchlist.txt"):
+            context.bot.send_message(
+                chat_id=chat_id,
+                text="Watchlist file not found\n"
+                     "Make sure you already create \"watchlist.txt\""
+            )
+        else:
+            with open("watchlist.txt", "r") as f:
+
+                # Check if file is already at EOF
+                if len(f.readline()) == 0:
+                    context.bot.send_message(
+                        chat_id=chat_id, text="Watchlist is empty"
+                    )
+                else:
+                    f.seek(0)
+                    for line in f:
+                        line = line.strip().upper()
+
+                        # Contact API
+                        response = requests.get(url.format(line))
+
+                        # Check for successful response
+                        if response.status_code == 200:
+
+                            # Parse response
+                            try:
+                                response = response.json()
+
+                                if "-" in response["priceChangePercent"]:
+                                    # Add red circle emoji
+                                    response["priceChangePercent"] = f"{response['priceChangePercent']}%\U0001F534"
+                                else:
+                                    # Add green circle emoji
+                                    response["priceChangePercent"] = f"{response['priceChangePercent']}%\U0001F7E2"
+
+                                context.bot.send_message(
+                                    chat_id=chat_id,
+                                    text=f"Symbol: {response['symbol']}\n"
+                                         f"24h Change: {response['priceChangePercent']}\n"
+                                         f"24h High: {response['highPrice']}\n"
+                                         f"24h Low: {response['lowPrice']}\n"
+                                         f"Price: {response['lastPrice']}"
+                                )
+                            except (KeyError, TypeError, ValueError) as e:
+                                context.bot.send_message(
+                                    chat_id=chat_id,
+                                    text="Couldn't parse the response"
+                                )
+                                raise e
+
+                        # Handle invalid symbol
+                        else:
+                            context.bot.send_message(
+                                chat_id=chat_id,
+                                text=f"\"{line}\" is an invalid symbol"
+                            )
+
+    # If 2 arguments, check for valid argument and...
+    elif argc == 2:
+        arg = context.args[0].lower()
+        symbol = context.args[1].upper()
+
+        # ...add symbol to watchlist or...
+        if arg == "add":
+            if not os.path.exists("watchlist.txt"):
+                context.bot.send_message(
+                    chat_id=chat_id,
+                    text="Watchlist file not found\n"
+                         "Make sure you already create \"watchlist.txt\""
+                )
+            else:
+                with open("watchlist.txt", "r+") as f:
+                    if len(f.readline()) == 0:
+                        f.write(f"{symbol}\n")
+
+                        context.bot.send_message(
+                            chat_id=chat_id,
+                            text=f"Successfully add \"{symbol}\" to watchlist"
+                        )
+                    else:
+                        f.seek(0)
+
+                        # Handle duplicate symbol
+                        if symbol in [line.strip().upper() for line in f.readlines()]:
+                            context.bot.send_message(
+                                    chat_id=chat_id,
+                                    text=f"\"{symbol}\" is already exists"
+                            )
+                        else:
+                            f.write(f"{symbol}\n")
+
+                            context.bot.send_message(
+                                chat_id=chat_id,
+                                text=f"Successfully add \"{symbol}\" to watchlist"
+                            )
+
+        # ...remove symbol from watchlist
+        elif arg == "rm":
+            if not os.path.exists("watchlist.txt"):
+                context.bot.send_message(
+                    chat_id=chat_id,
+                    text="Watchlist file not found\n"
+                         "Make sure you already create \"watchlist.txt\""
+                )
+            elif symbol == "ALL":
+                with open("watchlist.txt", "r+") as f:
+                    if len(f.readline()) == 0:
+                        context.bot.send_message(
+                            chat_id=chat_id,
+                            text="Watchlist is already empty"
+                        )
+                    else:
+
+                        # Clear all contents in watchlist
+                        f.truncate(0)
+
+                        context.bot.send_message(
+                            chat_id=chat_id,
+                            text="Watchlist is now empty"
+                        )
+            else:
+                success = False
+
+                with open("watchlist.txt", "r") as f:
+                    if len(f.readline()) == 0:
+                        context.bot.send_message(
+                            chat_id=chat_id,
+                            text="Watchlist is already empty"
+                        )
+                    else:
+                        f.seek(0)
+                        lines = [line.strip().upper() for line in f.readlines()]
+
+                        # Handle symbol not in watchlist
+                        if symbol not in lines:
+                            context.bot.send_message(
+                                chat_id=chat_id,
+                                text=f"No \"{symbol}\" in watchlist"
+                            )
+                        else:
+                            with open("temp.txt", "w") as out_f:
+                                for line in lines:
+                                    if line != symbol:
+                                        out_f.write(f"{line}\n")
+
+                            success = True
+
+                if success:
+                    os.replace("temp.txt", "watchlist.txt")
+
+                    context.bot.send_message(
+                        chat_id=chat_id,
+                        text=f"Successfully remove \"{symbol}\" from watchlist"
+                    )
+                else:
+                    context.bot.send_message(
+                        chat_id=chat_id,
+                        text=f"Fail to remove \"{symbol}\" from watchlist"
+                    )
+
+        # Handle invalid argument
+        else:
+            context.bot.send_message(
+                chat_id=chat_id,
+                text=f"Invalid argument, try \"add\" or \"rm\""
+            )
+
+    # Handle invalid usage
+    else:
+        context.bot.send_message(
+            chat_id=chat_id,
+            text="Usage:\n"
+                 "/watchlist\n"
+                 "/watchlist add [symbol]\n"
+                 "/watchlist rm [symbol]"
+        )
