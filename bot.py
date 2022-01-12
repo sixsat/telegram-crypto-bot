@@ -174,6 +174,7 @@ def watchlist_binance_command(update: Update, context: CallbackContext):
             text="Watchlist file not found\n"
                  "Make sure you already create \"watchlist.txt\""
         )
+        return
 
     # If no argument, read watchlist and lookup for each symbol
     elif argc == 0:
